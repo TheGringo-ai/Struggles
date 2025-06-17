@@ -3,3 +3,4 @@
 # permission fix
 # permission fix
 # unlock full deploy
+# grant serviceAccountUser
