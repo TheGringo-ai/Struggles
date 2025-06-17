@@ -7,6 +7,9 @@ on:
 
 jobs:
   deploy:
+    permissions:
+      id-token: write
+      contents: read
     runs-on: ubuntu-latest
 
     steps:
@@ -40,4 +43,5 @@ jobs:
             --image=us-central1-docker.pkg.dev/chatterfix-ui/cloud-run-source-deploy/agent-core-ui \
             --platform=managed \
             --region=us-central1 \
-            --allow-unauthenticated
+            --allow-unauthenticated \
+            --port=8080
