@@ -28,6 +28,7 @@ jobs:
           gcloud auth configure-docker us-central1-docker.pkg.dev
 
       - name: Build and push Docker image
+        working-directory: ${{ github.workspace }}
         run: |
           IMAGE=us-central1-docker.pkg.dev/chatterfix-ui/cloud-run-source-deploy/agent-core-ui
           docker build -t $IMAGE -f Dockerfile .

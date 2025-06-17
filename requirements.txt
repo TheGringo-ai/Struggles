@@ -1,0 +1,8 @@
+
+
+
+streamlit
+openai
+google-cloud-storage
+google-cloud-aiplatform
+faiss-cpu
