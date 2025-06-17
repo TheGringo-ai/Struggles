@@ -30,7 +30,7 @@ jobs:
       - name: Build and push Docker image
         run: |
           IMAGE=us-central1-docker.pkg.dev/chatterfix-ui/cloud-run-source-deploy/agent-core-ui
-          docker build -t $IMAGE -f ui/Dockerfile ui
+          docker build -t $IMAGE -f Dockerfile .
           docker push $IMAGE
 
       - name: Deploy to Cloud Run
