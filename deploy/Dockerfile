@@ -13,10 +13,6 @@ FROM python:3.10-slim-buster
 WORKDIR /app
 
 COPY --from=builder /install_packages /usr/local
-All components are up to date.
-➜  Struggles git:(main) ✗ gcloud beta run services logs tail agent-core-ui --region=us-central1
-streaming logs from chatterfix-ui
-
 
 EXPOSE 8080
 
