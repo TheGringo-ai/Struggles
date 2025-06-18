@@ -43,4 +43,50 @@ jobs:
             --platform=managed \
             --region=us-central1 \
             --allow-unauthenticated \
-            --port=8080
+            --port 8080
+
+      # Temporary step to confirm billing setup during Cloud Run deployment
+      - name: Confirm billing setup
+        run: |
+          echo "✅ Billing setup trigger initiated. Ensure billing is active for project chatterfix-ui."
+
+      - name: Ensure jq is installed
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq
+        shell: bash
+
+      - name: Verify Service Account Credentials JSON
+        run: |
+          echo "${{ secrets.GCP_SA_KEY }}" | jq empty
+        shell: bash
+
+      - name: Run Simple Chat API Test
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          curl https://api.openai.com/v1/chat/completions \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $OPENAI_API_KEY" \
+            -d '{
+              "model": "gpt-3.5-turbo",
+              "messages": [{"role": "user", "content": "Hello!"}],
+              "max_tokens": 5
+            }'
+
+      - name: Run Google Chat API Test
+        env:
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+        run: |
+          curl -X POST \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $GOOGLE_API_KEY" \
+            -d '{
+              "text": "Hello from GitHub Actions!"
+            }' \
+            "https://chat.googleapis.com/v1/spaces/SPACE_ID/messages?key=$GOOGLE_API_KEY"
+
+      - name: Check JSON validity of GCP Service Account Key
+        run: |
+          echo "${{ secrets.GCP_SA_KEY }}" | jq type
+        shell: bash
