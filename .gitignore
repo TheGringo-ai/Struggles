@@ -1,0 +1,38 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*.so
+
+# Virtual environments
+.venv/
+env/
+venv/
+
+# Environment files
+*.env
+.env.*
+
+# Docker
+*.log
+*.pid
+*.seed
+*.tar
+*.bak
+*.swp
+.DS_Store
+
+# Secret keys or credentials
+gcp-key.json
+*.pem
+
+# VSCode + Jupyter
+.vscode/
+.ipynb_checkpoints/
+
+# Streamlit cache
+.streamlit/
+
+# Build artifacts
+dist/
+build/
+*.egg-info/Ejaculating too soon here is his secret for lasting longer I love my boyfriend but things are starting to get a little dry in the bedroom
