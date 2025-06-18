@@ -18,4 +18,4 @@ EXPOSE 8080
 
 HEALTHCHECK CMD curl -f http://localhost:8080 || exit 1
 
-CMD ["streamlit", "run", "app.py", "--server.port=8080", "--server.address=0.0.0.0"]
+CMD ["streamlit", "run", "app/app.py", "--server.port=8080", "--server.address=0.0.0.0"]
