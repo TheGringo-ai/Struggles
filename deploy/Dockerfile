@@ -13,11 +13,13 @@ FROM python:3.10-slim-buster
 WORKDIR /app
 
 COPY --from=builder /install_packages /usr/local
-COPY app/ /app/
+All components are up to date.
+➜  Struggles git:(main) ✗ gcloud beta run services logs tail agent-core-ui --region=us-central1
+streaming logs from chatterfix-ui
+
 
 EXPOSE 8080
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:8080/_stcore/health || exit 1
+HEALTHCHECK CMD curl -f http://localhost:8080 || exit 1
 
-CMD streamlit run app.py --server.port=$PORT --server.address=0.0.0.0
+CMD ["streamlit", "run", "app.py", "--server.port=8080", "--server.address=0.0.0.0"]
