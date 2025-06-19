@@ -1,4 +1,6 @@
 import streamlit as st
+
+st.title("Agent Core UI is alive")
 from model_selector import MODEL_PRESETS, get_model_description, get_model, get_provider, get_api_key
 from agent_caller import call_agent
 from secrets import load_secrets, explain_secrets
