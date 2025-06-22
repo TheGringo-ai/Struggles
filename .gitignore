@@ -36,3 +36,7 @@ gcp-key.json
 dist/
 build/
 *.egg-info/
+*.tmp
+*.log
+*.test.json
+*.csv
