@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Login | ChatterFix</title>
+  <link rel="icon" href="/logo.png" type="image/png" />
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
     import {
@@ -37,6 +38,9 @@
 
     document.getElementById("login-form").addEventListener("submit", async (e) => {
       e.preventDefault();
+      const loginButton = e.target.querySelector("button[type='submit']");
+      loginButton.disabled = true;
+      loginButton.innerText = "Signing in...";
       const email = document.getElementById("email").value;
       const password = document.getElementById("password").value;
 
@@ -55,6 +59,9 @@
         }
       } catch (error) {
         alert("Login error: " + error.message);
+      } finally {
+        loginButton.disabled = false;
+        loginButton.innerText = "Sign In";
       }
     });
 
@@ -79,12 +86,17 @@
 
     document.getElementById("signup-form").addEventListener("submit", async (e) => {
       e.preventDefault();
+      const signupButton = e.target.querySelector("button[type='submit']");
+      signupButton.disabled = true;
+      signupButton.innerText = "Creating account...";
       const email = document.getElementById("signup-email").value;
       const password = document.getElementById("signup-password").value;
 
       const emailDomain = email.split("@")[1];
       if (!allowedDomains.includes(emailDomain)) {
         alert("Signup restricted to invited domains only.");
+        signupButton.disabled = false;
+        signupButton.innerText = "Create Account";
         return;
       }
 
@@ -120,6 +132,9 @@
         }
       } catch (error) {
         alert("Signup error: " + error.message);
+      } finally {
+        signupButton.disabled = false;
+        signupButton.innerText = "Create Account";
       }
     });
 
@@ -135,7 +150,11 @@
 
     onAuthStateChanged(auth, (user) => {
       if (user) {
-        document.getElementById("status").innerText = `Signed in as ${user.email}`;
+        document.getElementById("status").innerHTML = `Signed in as ${user.email} <button id="logout-btn">Logout</button>`;
+        document.getElementById("logout-btn").addEventListener("click", () => {
+          auth.signOut();
+          window.location.reload();
+        });
       }
     });
   </script>

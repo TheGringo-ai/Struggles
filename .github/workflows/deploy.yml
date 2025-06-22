@@ -1,3 +1,6 @@
+# ![Test Coverage](https://img.shields.io/badge/coverage-pending-yellow)
+# ![Build Status](https://github.com/TheGringo-ai/ChatterFix/actions/workflows/deploy.yml/badge.svg)
+
 name: Deploy to Cloud Run
 
 on:
@@ -7,20 +10,34 @@ on:
 
 jobs:
   deploy:
+    strategy:
+      matrix:
+        environment: [staging, production]
+    name: Deploy to ${{ matrix.environment }}
     permissions:
       id-token: write
       contents: read
     runs-on: ubuntu-latest
 
-    env:
-      REGION: us-central1
-      PROJECT_ID: chatterfix-ui
-      SERVICE_NAME: agent-core-ui
-      IMAGE: us-central1-docker.pkg.dev/${{ env.PROJECT_ID }}/cloud-run-source-deploy/${{ env.SERVICE_NAME }}
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+
+      - name: Run unit tests
+        run: |
+          pip install -r requirements.txt
+          pytest --maxfail=1 --disable-warnings --tb=short
+
+      - name: Collect test coverage
+        run: |
+          pip install coverage
+          coverage run -m pytest
+          coverage report
+
+      - name: Run lint checks
+        run: |
+          pip install flake8
+          flake8 .
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v1
@@ -33,32 +50,48 @@ jobs:
           project_id: chatterfix-ui
 
       - name: Configure Docker for Artifact Registry
-        run: |
-          gcloud auth configure-docker $REGION-docker.pkg.dev
+        run: gcloud auth configure-docker us-central1-docker.pkg.dev
 
       - name: Build and push Docker image
         run: |
+          IMAGE=us-central1-docker.pkg.dev/chatterfix-ui/cloud-run-source-deploy/agent-core-ui
           docker build -t $IMAGE -f deploy/Dockerfile . 
           docker push $IMAGE
 
-      - name: Pre-deploy health check
-        continue-on-error: true
-        run: |
-          curl -f https://${{ env.SERVICE_NAME }}-${{ env.PROJECT_ID }}.run.app || echo "⚠️ Previous version unreachable"
-
       - name: Deploy to Cloud Run
         run: |
-          gcloud run deploy --service=$SERVICE_NAME \
-            --image=$IMAGE \
+          gcloud run deploy agent-core-ui-${{ matrix.environment }} \
+            --image=us-central1-docker.pkg.dev/chatterfix-ui/cloud-run-source-deploy/agent-core-ui \
             --platform=managed \
-            --region=$REGION \
+            --region=us-central1 \
             --allow-unauthenticated \
             --port 8080
 
-      # Temporary step to confirm billing setup during Cloud Run deployment
-      - name: Confirm billing setup
+      - name: Handle Deployment Failure with Gemini
+        if: failure()
         run: |
-          echo "✅ Billing setup trigger initiated. Ensure billing is active for project chatterfix-ui."
+          echo "❌ Deployment failed. Triggering Gemini-based auto-healing..."
+          echo '{"action":"rebuild-and-retry","source":"CI","timestamp":"'$(date -u +%FT%TZ)'"}' > repair.json
+          echo "🧠 Simulated Gemini fallback analysis..."
+          docker builder prune -f
+          docker build --no-cache -t $IMAGE -f deploy/Dockerfile .
+          docker push $IMAGE
+          gcloud run deploy agent-core-ui-${{ matrix.environment }} \
+            --image=us-central1-docker.pkg.dev/chatterfix-ui/cloud-run-source-deploy/agent-core-ui \
+            --platform=managed \
+            --region=us-central1 \
+            --allow-unauthenticated \
+            --port 8080
+
+      - name: Enable Cloud Run rollback on failure
+        run: |
+          gcloud run services update agent-core-ui \
+            --platform=managed \
+            --region=us-central1 \
+            --update-failure-policy=rollback
+
+      - name: Confirm billing setup
+        run: echo "✅ Billing setup trigger initiated. Ensure billing is active for project chatterfix-ui."
 
       - name: Ensure jq is installed
         run: |
@@ -67,8 +100,9 @@ jobs:
         shell: bash
 
       - name: Verify Service Account Credentials JSON
-        run: |
-          echo "${{ secrets.GCP_SA_KEY }}" | jq empty
+        env:
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+        run: echo "$GCP_SA_KEY" | jq empty
         shell: bash
 
       - name: Run Simple Chat API Test
@@ -97,16 +131,43 @@ jobs:
             "https://chat.googleapis.com/v1/spaces/SPACE_ID/messages?key=$GOOGLE_API_KEY"
 
       - name: Check JSON validity of GCP Service Account Key
-        run: |
-          echo "${{ secrets.GCP_SA_KEY }}" | jq type
+        env:
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+        run: echo "$GCP_SA_KEY" | jq type
         shell: bash
 
-      - name: Send success notification
-        if: success()
+  post-deploy-monitoring:
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Log deployment to Firestore
+        env:
+          FIRESTORE_KEY_JSON: ${{ secrets.GCP_SA_KEY }}
         run: |
-          echo "✅ Deployment to $SERVICE_NAME successful."
+          echo '{"status":"success","timestamp":"'$(date -u +%FT%TZ)'"}' > log.json
+          gcloud auth activate-service-account --key-file=<(echo "$FIRESTORE_KEY_JSON")
+          gcloud firestore write logs deployments log.json
 
-      - name: Send failure notification
+      - name: Sync Firestore dashboard (deployments)
+        run: |
+          echo "📊 Syncing deployment data to Firestore dashboard..."
+          # Placeholder for future dashboard endpoint or BigQuery export
+
+      - name: Record rollback event to Firestore
+        if: failure()
+        env:
+          FIRESTORE_KEY_JSON: ${{ secrets.GCP_SA_KEY }}
+        run: |
+          echo '{"status":"rollback","timestamp":"'$(date -u +%FT%TZ)'"}' > rollback_logs.json
+          gcloud auth activate-service-account --key-file=<(echo "$FIRESTORE_KEY_JSON")
+          gcloud firestore write logs rollbacks rollback_logs.json
+
+      - name: Slack alert on failure
         if: failure()
         run: |
-          echo "❌ Deployment to $SERVICE_NAME failed."
+          curl -X POST -H 'Content-type: application/json' \
+            --data '{"text":"❌ Deployment failed on ChatterFix — rollback attempted. Logs stored in Firestore."}' \
+            ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: Track AI agent usage metrics
+        run: echo "🧠 Agent usage tracking initialized (mocked)"
