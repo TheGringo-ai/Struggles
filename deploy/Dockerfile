@@ -12,12 +12,13 @@ FROM python:3.10-slim-buster
 
 WORKDIR /app
 
-COPY ../app.py /app.py
-
+COPY app.py /app.py
 COPY --from=builder /install_packages /usr/local
+
+ENV PORT=8080
 
 EXPOSE 8080
 
 HEALTHCHECK CMD curl -f http://localhost:8080 || exit 1
 
-CMD ["streamlit", "run", "/app/app.py", "--server.port=8080", "--server.address=0.0.0.0"]
+CMD ["streamlit", "run", "app.py", "--server.port=8080", "--server.address=0.0.0.0"]
