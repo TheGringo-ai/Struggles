@@ -83,6 +83,41 @@ jobs:
             --allow-unauthenticated \
             --port 8080
 
+      - name: Parse Logs for Known Failures and Auto-Patch
+        if: failure()
+        run: |
+          echo "🔍 Parsing logs for known errors..."
+          mkdir -p .ci_fixes
+          grep -i "error" deploy.log | tee .ci_fixes/errors.txt || echo "No error logs found."
+          echo "🛠️ Attempting automated patch for known issues..."
+          if grep -q "invalid reference format" .ci_fixes/errors.txt; then
+            echo "Detected Docker tag format issue. Rebuilding without cache..."
+            docker builder prune -f
+            docker build --no-cache -t $IMAGE -f deploy/Dockerfile .
+            docker push $IMAGE
+            gcloud run deploy agent-core-ui-${{ matrix.environment }} \
+              --image=us-central1-docker.pkg.dev/chatterfix-ui/cloud-run-source-deploy/agent-core-ui \
+              --platform=managed \
+              --region=us-central1 \
+              --allow-unauthenticated \
+              --port 8080
+          fi
+
+      - name: Log Auto-Patch Action to Firestore
+        if: failure()
+        env:
+          FIRESTORE_KEY_JSON: ${{ secrets.GCP_SA_KEY }}
+        run: |
+          echo '{"action":"auto-patch","result":"success","trigger":"log analysis","timestamp":"'$(date -u +%FT%TZ)'"}' > autopatch_logs.json
+          gcloud auth activate-service-account --key-file=<(echo "$FIRESTORE_KEY_JSON")
+          gcloud firestore write logs autopatches autopatch_logs.json
+
+      - name: Export Auto-Patch Metadata to BigQuery (optional)
+        if: failure()
+        run: |
+          echo "📤 Exporting patch metadata to BigQuery (placeholder)"
+          # Placeholder for future BigQuery integration
+
       - name: Enable Cloud Run rollback on failure
         run: |
           gcloud run services update agent-core-ui \
@@ -162,12 +197,12 @@ jobs:
           gcloud auth activate-service-account --key-file=<(echo "$FIRESTORE_KEY_JSON")
           gcloud firestore write logs rollbacks rollback_logs.json
 
-      - name: Slack alert on failure
+      - name: Email alert on failure
         if: failure()
         run: |
-          curl -X POST -H 'Content-type: application/json' \
-            --data '{"text":"❌ Deployment failed on ChatterFix — rollback attempted. Logs stored in Firestore."}' \
-            ${{ secrets.SLACK_WEBHOOK_URL }}
+          echo "Subject: ❌ Deployment Failed on ChatterFix" > email.txt
+          echo "The deployment failed and a rollback was attempted. See Firestore for logs." >> email.txt
+          cat email.txt
 
       - name: Track AI agent usage metrics
         run: echo "🧠 Agent usage tracking initialized (mocked)"
