@@ -1,0 +1,42 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*.so
+
+# Virtual environments
+.venv/
+env/
+venv/
+
+# Environment files
+*.env
+.env.*
+
+# Docker
+*.log
+*.pid
+*.seed
+*.tar
+*.bak
+*.swp
+.DS_Store
+
+# Secret keys or credentials
+gcp-key.json
+*.pem
+
+# VSCode + Jupyter
+.vscode/
+.ipynb_checkpoints/
+
+# Streamlit cache
+.streamlit/
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+*.tmp
+*.log
+*.test.json
+*.csv

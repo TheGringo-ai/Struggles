@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login | ChatterFix</title>
+  <link rel="icon" href="/logo.png" type="image/png" />
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
+    import {
+      getAuth,
+      signInWithEmailAndPassword,
+      onAuthStateChanged,
+      signInWithPopup,
+      GoogleAuthProvider,
+      createUserWithEmailAndPassword
+    } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js";
+    import {
+      getFirestore,
+      doc,
+      setDoc
+    } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCnFUP0x0lBNyo3FAP7F0YyUX9ho5GPX5c",
+      authDomain: "chatterfix-ui.firebaseapp.com",
+      projectId: "chatterfix-ui",
+      storageBucket: "chatterfix-ui.appspot.com",
+      messagingSenderId: "487771372565",
+      appId: "1:487771372565:web:e058bc701f58a27bfe221c"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth();
+    const provider = new GoogleAuthProvider();
+    const db = getFirestore(app);
+    const allowedDomains = ["chatterfix.com", "gringosgambit.com"];
+
+    document.getElementById("login-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const loginButton = e.target.querySelector("button[type='submit']");
+      loginButton.disabled = true;
+      loginButton.innerText = "Signing in...";
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+
+      try {
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        const token = await userCredential.user.getIdToken();
+        const res = await fetch("/token", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token })
+        });
+        if (res.ok) {
+          window.location.href = "/";
+        } else {
+          alert("Token submission failed");
+        }
+      } catch (error) {
+        alert("Login error: " + error.message);
+      } finally {
+        loginButton.disabled = false;
+        loginButton.innerText = "Sign In";
+      }
+    });
+
+    document.getElementById("google-login").addEventListener("click", async () => {
+      try {
+        const result = await signInWithPopup(auth, provider);
+        const token = await result.user.getIdToken();
+        const res = await fetch("/token", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token })
+        });
+        if (res.ok) {
+          window.location.href = "/";
+        } else {
+          alert("Token submission failed");
+        }
+      } catch (error) {
+        alert("Google login error: " + error.message);
+      }
+    });
+
+    document.getElementById("signup-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const signupButton = e.target.querySelector("button[type='submit']");
+      signupButton.disabled = true;
+      signupButton.innerText = "Creating account...";
+      const email = document.getElementById("signup-email").value;
+      const password = document.getElementById("signup-password").value;
+
+      const emailDomain = email.split("@")[1];
+      if (!allowedDomains.includes(emailDomain)) {
+        alert("Signup restricted to invited domains only.");
+        signupButton.disabled = false;
+        signupButton.innerText = "Create Account";
+        return;
+      }
+
+      try {
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        await userCredential.user.sendEmailVerification();
+
+        const token = await userCredential.user.getIdToken();
+
+        const role = emailDomain === "chatterfix.com" ? "admin" : "tech";
+        await setDoc(doc(db, "users", userCredential.user.uid), {
+          email: email,
+          uid: userCredential.user.uid,
+          createdAt: new Date().toISOString(),
+          verified: false,
+          role: role,
+          usage: {
+            logins: 1,
+            lastLogin: new Date().toISOString()
+          }
+        });
+
+        const res = await fetch("/token", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token })
+        });
+        if (res.ok) {
+          alert("Verification email sent. Please check your inbox before logging in.");
+          window.location.href = "/";
+        } else {
+          alert("Token submission failed");
+        }
+      } catch (error) {
+        alert("Signup error: " + error.message);
+      } finally {
+        signupButton.disabled = false;
+        signupButton.innerText = "Create Account";
+      }
+    });
+
+    document.getElementById("toggle-signup").addEventListener("click", () => {
+      document.getElementById("login-form").style.display = "none";
+      document.getElementById("signup-form").style.display = "flex";
+    });
+
+    document.getElementById("toggle-login").addEventListener("click", () => {
+      document.getElementById("signup-form").style.display = "none";
+      document.getElementById("login-form").style.display = "flex";
+    });
+
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        document.getElementById("status").innerHTML = `Signed in as ${user.email} <button id="logout-btn">Logout</button>`;
+        document.getElementById("logout-btn").addEventListener("click", () => {
+          auth.signOut();
+          window.location.reload();
+        });
+      }
+    });
+  </script>
+  <style>
+    body {
+      font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+    }
+    form {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      width: 300px;
+    }
+    input, button {
+      padding: 10px;
+      font-size: 1em;
+    }
+  </style>
+</head>
+<body>
+  <h1>ChatterFix Login</h1>
+
+  <form id="login-form">
+    <input type="email" id="email" placeholder="Email" required />
+    <input type="password" id="password" placeholder="Password" required />
+    <button type="submit">Sign In</button>
+    <button type="button" id="google-login" style="background-color:#4285F4; color:white;">
+      Sign in with Google
+    </button>
+    <p><a href="#" id="toggle-signup">Don't have an account? Sign up</a></p>
+  </form>
+
+  <form id="signup-form" style="display:none;">
+    <input type="email" id="signup-email" placeholder="Email" required />
+    <input type="password" id="signup-password" placeholder="Password" required />
+    <button type="submit">Create Account</button>
+    <p><a href="#" id="toggle-login">Already have an account? Log in</a></p>
+  </form>
+
+  <p id="status">Not signed in</p>
+</body>
+</html>

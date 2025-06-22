@@ -1,0 +1,12 @@
+specVersion: "v1"
+serviceId: "Struggles"
+location: "us-central1"
+schema:
+  source: "./schema"
+  datasource:
+    postgresql:
+      database: "fdcdb"
+      cloudSql:
+        instanceId: "struggles-fdc"
+      # schemaValidation: "COMPATIBLE"
+connectorDirs: ["./connector"]
