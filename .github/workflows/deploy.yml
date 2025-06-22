@@ -12,6 +12,12 @@ jobs:
       contents: read
     runs-on: ubuntu-latest
 
+    env:
+      REGION: us-central1
+      PROJECT_ID: chatterfix-ui
+      SERVICE_NAME: agent-core-ui
+      IMAGE: us-central1-docker.pkg.dev/${{ env.PROJECT_ID }}/cloud-run-source-deploy/${{ env.SERVICE_NAME }}
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -28,20 +34,24 @@ jobs:
 
       - name: Configure Docker for Artifact Registry
         run: |
-          gcloud auth configure-docker us-central1-docker.pkg.dev
+          gcloud auth configure-docker $REGION-docker.pkg.dev
 
       - name: Build and push Docker image
         run: |
-          IMAGE=us-central1-docker.pkg.dev/chatterfix-ui/cloud-run-source-deploy/agent-core-ui
           docker build -t $IMAGE -f deploy/Dockerfile . 
           docker push $IMAGE
 
+      - name: Pre-deploy health check
+        continue-on-error: true
+        run: |
+          curl -f https://${{ env.SERVICE_NAME }}-${{ env.PROJECT_ID }}.run.app || echo "⚠️ Previous version unreachable"
+
       - name: Deploy to Cloud Run
         run: |
-          gcloud run deploy agent-core-ui \
-            --image=us-central1-docker.pkg.dev/chatterfix-ui/cloud-run-source-deploy/agent-core-ui \
+          gcloud run deploy --service=$SERVICE_NAME \
+            --image=$IMAGE \
             --platform=managed \
-            --region=us-central1 \
+            --region=$REGION \
             --allow-unauthenticated \
             --port 8080
 
@@ -90,3 +100,13 @@ jobs:
         run: |
           echo "${{ secrets.GCP_SA_KEY }}" | jq type
         shell: bash
+
+      - name: Send success notification
+        if: success()
+        run: |
+          echo "✅ Deployment to $SERVICE_NAME successful."
+
+      - name: Send failure notification
+        if: failure()
+        run: |
+          echo "❌ Deployment to $SERVICE_NAME failed."
