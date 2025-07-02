@@ -1,0 +1,34 @@
+steps:
+  # Step 1: Build the Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/struggles-app', '.']
+
+  # Step 2: Push the Docker image to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/struggles-app']
+
+  # Step 3: Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - struggles-app
+      - --image=gcr.io/$PROJECT_ID/struggles-app
+      - --platform=managed
+      - --region=us-central1
+      - --allow-unauthenticated
+      - --port=8501  # For Streamlit (default port)
+
+  - name: 'gcr.io/cloud-builders/gcloud'
+    entrypoint: bash
+    args:
+    - -c
+    - |
+      echo "🧪 Loading secrets..."
+      gcloud secrets versions access latest --secret="openai-api-key" > .env.openai
+      gcloud secrets versions access latest --secret="gemini-api-key" >> .env.openai
+      gcloud secrets versions access latest --secret="huggingface-api-key" >> .env.openai
+
+images:
+  - gcr.io/$PROJECT_ID/struggles-app

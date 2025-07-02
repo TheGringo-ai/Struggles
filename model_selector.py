@@ -8,8 +8,9 @@ MODEL_PRESETS = {
         "gpt-3.5-turbo": "Fast, cheap, and lightweight for most tasks."
     },
     "Gemini": {
-        "gemini-pro": "Google’s flagship text model.",
-        "gemini-pro-vision": "Multimodal version that accepts images."
+        "gemini-pro": "Google’s Gemini Pro (v1) - basic flagship model.",
+        "gemini-1.5-pro": "Gemini 1.5 Pro (Latest) - strong reasoning and multi-modal support.",
+        "gemini-1.5-flash": "Gemini 1.5 Flash - optimized for speed and low latency."
     },
     "HuggingFace": {
         "mistralai/Mistral-7B-Instruct-v0.2": "7B open-weight model for coding and QA.",
@@ -38,3 +39,20 @@ def get_api_key(provider, state=None):
 def get_model_description(provider, model_id):
     """Return model description if known."""
     return MODEL_PRESETS.get(provider, {}).get(model_id, "🔍 Custom or unknown model.")
+
+
+def get_fallback_model(provider, failed_model):
+    models = list(MODEL_PRESETS.get(provider, {}).keys())
+    if failed_model in models:
+        models.remove(failed_model)
+    return models[0] if models else None
+
+
+def render_model_selector(provider):
+    model_descriptions = MODEL_PRESETS.get(provider, {})
+    model_options = list(model_descriptions.keys())
+    labeled_options = [f"{model} – {desc}" for model, desc in model_descriptions.items()]
+    selected_label = st.selectbox("Choose model:", labeled_options)
+    selected_model = selected_label.split(" – ")[0]
+    st.session_state["model"] = selected_model
+    return selected_model
